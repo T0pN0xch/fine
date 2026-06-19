@@ -18,6 +18,15 @@ class AppColors {
 
   // Pastel palette for Goals cards (kept as alias of the same family for consistency)
   static const List<Color> goalColors = categoryColors;
+
+  // Darker, more saturated variant of a pastel, for progress-bar fills on top of it.
+  static Color progressFillFor(Color pastel) {
+    final hsl = HSLColor.fromColor(pastel);
+    return hsl
+        .withLightness((hsl.lightness - 0.30).clamp(0.0, 1.0))
+        .withSaturation((hsl.saturation + 0.25).clamp(0.0, 1.0))
+        .toColor();
+  }
 }
 
 /// Theme-aware neutral/semantic colors, resolved per-context via `context.colors`.

@@ -6,7 +6,7 @@ import '../utils/currency_formatter.dart';
 
 /// A smooth curved line chart with a draggable value tooltip, matching the
 /// "Statistic" reference style — used by Insights and Wallet net worth.
-class TrendLineChart extends StatelessWidget {
+class TrendLineChart extends StatefulWidget {
   final List<MapEntry<DateTime, double>> data;
   final Color color;
   final String Function(DateTime date)? bottomLabel;
@@ -19,7 +19,16 @@ class TrendLineChart extends StatelessWidget {
   });
 
   @override
+  State<TrendLineChart> createState() => _TrendLineChartState();
+}
+
+class _TrendLineChartState extends State<TrendLineChart> {
+  int? _touchedIndex;
+
+  @override
   Widget build(BuildContext context) {
+    final data = widget.data;
+    final color = widget.color;
     final spots = [
       for (int i = 0; i < data.length; i++)
         FlSpot(i.toDouble(), data[i].value)
@@ -27,6 +36,9 @@ class TrendLineChart extends StatelessWidget {
     final minY = spots.map((s) => s.y).reduce((a, b) => a < b ? a : b);
     final maxY = spots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
     final pad = (maxY - minY).abs() * 0.2 + 1;
+    final labelInterval = (data.length / 5).ceil().clamp(1, 1000).toDouble();
+    final defaultIndex = spots.length - 1;
+    final activeIndex = _touchedIndex ?? defaultIndex;
 
     return LineChart(
       LineChartData(
@@ -43,25 +55,48 @@ class TrendLineChart extends StatelessWidget {
               const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
-              showTitles: bottomLabel != null,
+              showTitles: widget.bottomLabel != null,
               reservedSize: 20,
+              interval: labelInterval,
               getTitlesWidget: (value, _) {
-                final idx = value.toInt();
-                if (bottomLabel == null || idx < 0 || idx >= data.length) {
+                final idx = value.round();
+                if (widget.bottomLabel == null || idx < 0 || idx >= data.length) {
                   return const SizedBox.shrink();
                 }
                 return Text(
-                  bottomLabel!(data[idx].key),
+                  widget.bottomLabel!(data[idx].key),
                   style: TextStyle(color: context.colors.textHint, fontSize: 10),
                 );
               },
             ),
           ),
         ),
+        showingTooltipIndicators: [
+          ShowingTooltipIndicators([
+            LineBarSpot(
+              LineChartBarData(spots: spots),
+              0,
+              spots[activeIndex],
+            ),
+          ]),
+        ],
         lineTouchData: LineTouchData(
           enabled: true,
           touchSpotThreshold: 40,
-          handleBuiltInTouches: true,
+          handleBuiltInTouches: false,
+          touchCallback: (event, response) {
+            final spot = response?.lineBarSpots?.firstOrNull;
+            if (spot == null) return;
+            if (event is FlTapUpEvent ||
+                event is FlPanEndEvent ||
+                event is FlLongPressEnd ||
+                event is FlPanUpdateEvent ||
+                event is FlPointerHoverEvent ||
+                event is FlTapDownEvent ||
+                event is FlLongPressMoveUpdate) {
+              setState(() => _touchedIndex = spot.x.toInt());
+            }
+          },
           touchTooltipData: LineTouchTooltipData(
             getTooltipColor: (_) => color,
             tooltipPadding:

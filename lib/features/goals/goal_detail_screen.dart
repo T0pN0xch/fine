@@ -288,7 +288,8 @@ class _GoalHeader extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               backgroundColor: Colors.white,
-              valueColor: AlwaysStoppedAnimation(context.colors.textPrimary),
+              valueColor:
+                  AlwaysStoppedAnimation(AppColors.progressFillFor(color)),
               minHeight: 10,
             ),
           ),

@@ -176,23 +176,31 @@ class _BalanceHeader extends StatelessWidget {
 
 // ── Money Flow Chart ──────────────────────────────────────────────────────────
 
-class _MoneyFlowChart extends StatelessWidget {
+class _MoneyFlowChart extends StatefulWidget {
   final List<Transaction> transactions;
   final int accountId;
   const _MoneyFlowChart({required this.transactions, required this.accountId});
 
   @override
+  State<_MoneyFlowChart> createState() => _MoneyFlowChartState();
+}
+
+class _MoneyFlowChartState extends State<_MoneyFlowChart> {
+  int? _touchedIndex;
+
+  @override
   Widget build(BuildContext context) {
-    final sorted = [...transactions]..sort((a, b) => a.date.compareTo(b.date));
+    final sorted = [...widget.transactions]
+      ..sort((a, b) => a.date.compareTo(b.date));
     double running = 0;
     final spots = <FlSpot>[];
     final dates = <DateTime>[];
     for (int i = 0; i < sorted.length; i++) {
       final t = sorted[i];
-      final isOutgoing = t.accountId == accountId &&
+      final isOutgoing = t.accountId == widget.accountId &&
           (t.type == 'expense' || t.type == 'transfer');
-      final isIncoming =
-          t.type == 'income' || (t.type == 'transfer' && t.toAccountId == accountId);
+      final isIncoming = t.type == 'income' ||
+          (t.type == 'transfer' && t.toAccountId == widget.accountId);
       if (isOutgoing) {
         running -= t.amount;
       } else if (isIncoming) {
@@ -203,6 +211,9 @@ class _MoneyFlowChart extends StatelessWidget {
     }
 
     final color = context.colors.primary;
+    final labelInterval = (dates.length / 5).ceil().clamp(1, 1000).toDouble();
+    final defaultIndex = spots.length - 1;
+    final activeIndex = _touchedIndex ?? defaultIndex;
 
     return Container(
       height: 180,
@@ -227,8 +238,9 @@ class _MoneyFlowChart extends StatelessWidget {
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 20,
+                interval: labelInterval,
                 getTitlesWidget: (value, _) {
-                  final idx = value.toInt();
+                  final idx = value.round();
                   if (idx < 0 || idx >= dates.length) {
                     return const SizedBox.shrink();
                   }
@@ -242,10 +254,33 @@ class _MoneyFlowChart extends StatelessWidget {
             ),
           ),
           borderData: FlBorderData(show: false),
+          showingTooltipIndicators: [
+            ShowingTooltipIndicators([
+              LineBarSpot(
+                LineChartBarData(spots: spots),
+                0,
+                spots[activeIndex],
+              ),
+            ]),
+          ],
           lineTouchData: LineTouchData(
             enabled: true,
             touchSpotThreshold: 40,
-            handleBuiltInTouches: true,
+            handleBuiltInTouches: false,
+            touchCallback: (event, response) {
+              final spot = response?.lineBarSpots?.firstOrNull;
+              if (spot == null) return;
+              if (event is FlTapUpEvent ||
+                  event is FlPanEndEvent ||
+                  event is FlLongPressEnd) {
+                setState(() => _touchedIndex = spot.x.toInt());
+              } else if (event is FlPanUpdateEvent ||
+                  event is FlPointerHoverEvent ||
+                  event is FlTapDownEvent ||
+                  event is FlLongPressMoveUpdate) {
+                setState(() => _touchedIndex = spot.x.toInt());
+              }
+            },
             touchTooltipData: LineTouchTooltipData(
               getTooltipColor: (_) => color,
               tooltipPadding:

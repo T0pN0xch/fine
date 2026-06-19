@@ -2,6 +2,26 @@
 
 Fine is a personal finance and budgeting app for Android, inspired by Money+. It helps you track income and expenses, manage multiple accounts (cash, bank, e-wallet, investment), set budgets, plan recurring bills and commitments, and save toward goals — all stored locally on your device.
 
+## Screenshots
+
+| Home | Wallet | Insights |
+|---|---|---|
+| ![Home](docs/screenshots/01_home.png) | ![Wallet](docs/screenshots/03_wallet.png) | ![Insights](docs/screenshots/04_insights.png) |
+
+| Goals | Goal Detail | Account Detail |
+|---|---|---|
+| ![Goals](docs/screenshots/05_goals.png) | ![Goal Detail](docs/screenshots/06_goal_detail.png) | ![Account Detail](docs/screenshots/07_account_detail.png) |
+
+| Edit Transaction |
+|---|
+| ![Edit Transaction](docs/screenshots/02_edit_transaction.png) |
+
+## Main Page Wireframe (Concept)
+
+A "more fun" reimagining of the Home tab — same data, friendlier shapes: a wavy greeting banner, a tappable mascot/streak badge, bouncier chart bars, and a playful floating action button.
+
+![Main page wireframe](docs/wireframes/main_page_wireframe.svg)
+
 ## Features
 
 - **Transactions** — log income, expenses, and transfers between accounts, organized by category.

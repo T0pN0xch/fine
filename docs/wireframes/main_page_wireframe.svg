@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="780" viewBox="0 0 360 780" font-family="Verdana, Arial, sans-serif">
+  <defs>
+    <linearGradient id="headerGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8E7CF0"/>
+      <stop offset="100%" stop-color="#B79CF5"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FFE08A"/>
+      <stop offset="100%" stop-color="#FFC9A8"/>
+    </linearGradient>
+    <style>
+      .lbl { fill:#6B6580; font-size:11px; }
+      .lblw { fill:#FFFFFF; font-size:11px; opacity:0.85; }
+      .big { fill:#2A2640; font-size:26px; font-weight:bold; }
+      .bigw { fill:#FFFFFF; font-size:30px; font-weight:bold; }
+      .note { fill:#9B93B5; font-size:9px; font-style:italic; }
+      .pill { fill:#FFFFFF; }
+      .pilltxt { fill:#2A2640; font-size:10px; font-weight:bold; }
+    </style>
+  </defs>
+
+  <!-- Phone frame -->
+  <rect x="2" y="2" width="356" height="776" rx="36" fill="#0F0D18" />
+  <rect x="10" y="10" width="340" height="760" rx="28" fill="#F4F1FB" />
+
+  <!-- ===== Header: wavy greeting banner instead of flat rect ===== -->
+  <path d="M10,38 L350,38 L350,190 Q260,230 180,190 Q100,150 10,190 Z" fill="url(#headerGrad)"/>
+  <!-- status bar notch -->
+  <circle cx="180" cy="46" r="3" fill="#FFFFFF" opacity="0.6"/>
+
+  <!-- menu + search icons -->
+  <rect x="28" y="58" width="22" height="3" rx="1.5" fill="#FFFFFF"/>
+  <rect x="28" y="65" width="22" height="3" rx="1.5" fill="#FFFFFF"/>
+  <rect x="28" y="72" width="14" height="3" rx="1.5" fill="#FFFFFF"/>
+  <circle cx="322" cy="66" r="9" fill="none" stroke="#FFFFFF" stroke-width="2.5"/>
+  <line x1="328" y1="72" x2="334" y2="78" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- playful waving mascot / streak badge (NEW, replaces plain "Good morning" text) -->
+  <circle cx="50" cy="110" r="22" fill="#FFE08A"/>
+  <text x="50" y="118" text-anchor="middle" font-size="20">😺</text>
+  <circle cx="68" cy="94" r="10" fill="#FF8A65" stroke="#FFFFFF" stroke-width="2"/>
+  <text x="68" y="98" text-anchor="middle" font-size="10" font-weight="bold" fill="#FFFFFF">7</text>
+  <text x="80" y="100" class="lblw">Good morning 👋</text>
+  <text x="80" y="116" class="note" fill="#FFF3D6">🔥 7-day logging streak — keep it up!</text>
+
+  <!-- Balance, bigger + a little tilted "sticker" feel via skewed accent bar -->
+  <text x="30" y="155" class="bigw">RM 19,252.21</text>
+  <rect x="30" y="163" width="150" height="14" rx="7" fill="#FFFFFF" opacity="0.18"/>
+  <text x="38" y="173" class="lblw">Balance this month ✨</text>
+
+  <!-- Income / Expense pills, rounded + bouncy shadow offset -->
+  <rect x="30" y="200" width="145" height="54" rx="20" fill="#D7F5E6"/>
+  <rect x="34" y="204" width="145" height="54" rx="20" fill="#BFF0D9" opacity="0.5"/>
+  <text x="46" y="222" class="lbl" fill="#2E8B66">↓ Income</text>
+  <text x="46" y="242" class="big" font-size="16" fill="#1F7A52">RM 10,075.00</text>
+
+  <rect x="185" y="200" width="145" height="54" rx="20" fill="#FFE1E3"/>
+  <text x="200" y="222" class="lbl" fill="#C2554F">↑ Expenses</text>
+  <text x="200" y="242" class="big" font-size="16" fill="#B23E3E">RM 1,282.79</text>
+
+  <!-- ===== Spending This Week card — bouncier rounded "blob" bars ===== -->
+  <rect x="30" y="276" width="300" height="170" rx="26" fill="url(#cardGrad)"/>
+  <text x="48" y="300" class="lbl" font-weight="bold" fill="#7A5B22">SPENDING THIS WEEK 🎈</text>
+
+  <!-- bars with rounded pill caps, varied jaunty heights, mascot-eye dot on tallest -->
+  <g>
+    <rect x="48"  y="370" width="20" height="30" rx="10" fill="#CDC8F5"/>
+    <rect x="78"  y="378" width="20" height="22" rx="10" fill="#A8E6CF"/>
+    <rect x="108" y="350" width="20" height="50" rx="10" fill="#FFB8C6"/>
+    <rect x="138" y="320" width="20" height="80" rx="10" fill="#8E7CF0"/>
+    <circle cx="148" cy="320" r="5" fill="#FFFFFF"/>
+    <circle cx="148" cy="320" r="2" fill="#8E7CF0"/>
+    <rect x="168" y="392" width="20" height="8"  rx="4"  fill="#E3E0F2"/>
+    <rect x="198" y="382" width="20" height="18" rx="9"  fill="#AEE0F2"/>
+    <rect x="228" y="388" width="20" height="12" rx="6"  fill="#D8C2EC"/>
+  </g>
+  <g class="lbl" text-anchor="middle" font-size="9">
+    <text x="58" y="415">Sat</text>
+    <text x="88" y="415">Sun</text>
+    <text x="118" y="415">Mon</text>
+    <text x="148" y="415" font-weight="bold">Tue</text>
+    <text x="178" y="415">Wed</text>
+    <text x="208" y="415">Thu</text>
+    <text x="238" y="415">Fri</text>
+  </g>
+  <text x="270" y="300" class="note" fill="#7A5B22">tap a bar to wiggle 🪄</text>
+
+  <!-- ===== Recent activity — playful sticker icons, slight rotation feel via diamond accent ===== -->
+  <text x="30" y="478" class="lbl" font-weight="bold" fill="#6B6580">YESTERDAY, 18 JUN</text>
+  <text x="330" y="478" text-anchor="end" class="lbl" fill="#C2554F">− RM 57.50</text>
+
+  <rect x="30" y="490" width="300" height="64" rx="18" fill="#FFFFFF"/>
+  <rect x="44" y="503" width="38" height="38" rx="12" fill="#FFE1C2" transform="rotate(-6 63 522)"/>
+  <text x="63" y="528" text-anchor="middle" font-size="18" transform="rotate(-6 63 522)">🍔</text>
+  <text x="94" y="516" class="big" font-size="14">Food &amp; Drinks</text>
+  <text x="94" y="533" class="lbl">Cash · 12:30 PM</text>
+  <text x="316" y="526" text-anchor="end" class="big" font-size="14" fill="#C2554F">− RM 45.50</text>
+
+  <rect x="30" y="562" width="300" height="64" rx="18" fill="#FFFFFF"/>
+  <rect x="44" y="575" width="38" height="38" rx="12" fill="#D7E8FF" transform="rotate(5 63 594)"/>
+  <text x="63" y="600" text-anchor="middle" font-size="18" transform="rotate(5 63 594)">🚗</text>
+  <text x="94" y="588" class="big" font-size="14">Transport</text>
+  <text x="94" y="605" class="lbl">Cash · 8:15 AM</text>
+  <text x="316" y="598" text-anchor="end" class="big" font-size="14" fill="#C2554F">− RM 12.00</text>
+
+  <!-- ===== Floating Action Button — bouncy squircle + sparkle instead of plain circle ===== -->
+  <circle cx="300" cy="700" r="34" fill="#8E7CF0" opacity="0.25"/>
+  <rect x="276" y="676" width="48" height="48" rx="20" fill="#8E7CF0"/>
+  <line x1="300" y1="688" x2="300" y2="712" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <line x1="288" y1="700" x2="312" y2="700" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <text x="322" y="668" font-size="14">✨</text>
+
+  <!-- ===== Bottom nav — playful pill highlight + bounce indicator dot ===== -->
+  <rect x="10" y="730" width="340" height="50" fill="#FFFFFF"/>
+  <rect x="26" y="738" width="64" height="34" rx="17" fill="#EDE9FB"/>
+  <text x="58" y="759" text-anchor="middle" font-size="16">🏠</text>
+  <circle cx="58" cy="734" r="2.5" fill="#8E7CF0"/>
+  <text x="140" y="759" text-anchor="middle" font-size="16">👛</text>
+  <text x="220" y="759" text-anchor="middle" font-size="16">📊</text>
+  <text x="300" y="759" text-anchor="middle" font-size="16">🚩</text>
+
+  <!-- annotations -->
+  <text x="180" y="20" text-anchor="middle" class="note" fill="#6B6580" font-size="11" font-weight="bold">Main Page — "more fun" wireframe concept</text>
+</svg>
