@@ -39,18 +39,14 @@ class TransactionsScreen extends ConsumerWidget {
 
     final weeklySpendingAsync = ref.watch(weeklySpendingProvider);
 
-    Widget body = Column(
-      children: [
-        // ── Header ────────────────────────────────────────────────────────
-        if (showBalance)
-          _HomeHeader(
+    final headerWidget = showBalance
+        ? _HomeHeader(
             balance: totalBalanceAsync.valueOrNull ?? 0,
             income: incomeAsync.valueOrNull ?? 0,
             expense: expenseAsync.valueOrNull ?? 0,
             weeklySpending: weeklySpendingAsync.valueOrNull ?? const [],
           )
-        else
-          Container(
+        : Container(
             color: context.colors.primary,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(
@@ -78,16 +74,29 @@ class TransactionsScreen extends ConsumerWidget {
                 ),
               ],
             ),
-          ),
+          );
 
-        // ── Transaction list ───────────────────────────────────────────────
-        Expanded(
-          child: txnsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
-            data: (txns) {
-              if (txns.isEmpty) {
-                return Center(
+    Widget body = txnsAsync.when(
+      loading: () => Column(
+        children: [
+          headerWidget,
+          const Expanded(child: Center(child: CircularProgressIndicator())),
+        ],
+      ),
+      error: (e, _) => Column(
+        children: [
+          headerWidget,
+          Expanded(child: Center(child: Text('Error: $e'))),
+        ],
+      ),
+      data: (txns) {
+        if (txns.isEmpty) {
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: headerWidget),
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -107,102 +116,106 @@ class TransactionsScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                );
-              }
+                ),
+              ),
+            ],
+          );
+        }
 
-              // Group by date
-              final groups = <DateTime, List<Transaction>>{};
-              for (final t in txns) {
-                final day =
-                    DateTime(t.date.year, t.date.month, t.date.day);
-                groups.putIfAbsent(day, () => []).add(t);
-              }
-              final dates = groups.keys.toList()
-                ..sort((a, b) => b.compareTo(a));
+        // Group by date
+        final groups = <DateTime, List<Transaction>>{};
+        for (final t in txns) {
+          final day = DateTime(t.date.year, t.date.month, t.date.day);
+          groups.putIfAbsent(day, () => []).add(t);
+        }
+        final dates = groups.keys.toList()..sort((a, b) => b.compareTo(a));
 
-              return ListView.builder(
-                padding:
-                    const EdgeInsets.fromLTRB(16, 12, 16, 120),
-                itemCount: dates.length,
-                itemBuilder: (context, i) {
-                  final date = dates[i];
-                  final dayTxns = groups[date]!;
-                  final dayExpense = dayTxns
-                      .where((t) => t.type == 'expense')
-                      .fold(0.0, (s, t) => s + t.amount);
-                  final dayIncome = dayTxns
-                      .where((t) => t.type == 'income')
-                      .fold(0.0, (s, t) => s + t.amount);
+        return CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(child: headerWidget),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) {
+                    final date = dates[i];
+                    final dayTxns = groups[date]!;
+                    final dayExpense = dayTxns
+                        .where((t) => t.type == 'expense')
+                        .fold(0.0, (s, t) => s + t.amount);
+                    final dayIncome = dayTxns
+                        .where((t) => t.type == 'income')
+                        .fold(0.0, (s, t) => s + t.amount);
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          children: [
-                            Text(
-                              DateFormatter.formatDayGroupLabel(date),
-                              style: TextStyle(
-                                color: context.colors.textSecondary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const Spacer(),
-                            if (dayIncome > 0)
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            children: [
                               Text(
-                                '+ ${CurrencyFormatter.format(dayIncome)}',
+                                DateFormatter.formatDayGroupLabel(date),
                                 style: TextStyle(
-                                    color: context.colors.income,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600),
+                                  color: context.colors.textSecondary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            if (dayIncome > 0 && dayExpense > 0)
-                              const SizedBox(width: 8),
-                            if (dayExpense > 0)
-                              Text(
-                                '- ${CurrencyFormatter.format(dayExpense)}',
-                                style: TextStyle(
-                                    color: context.colors.expense,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600),
-                              ),
-                          ],
+                              const Spacer(),
+                              if (dayIncome > 0)
+                                Text(
+                                  '+ ${CurrencyFormatter.format(dayIncome)}',
+                                  style: TextStyle(
+                                      color: context.colors.income,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              if (dayIncome > 0 && dayExpense > 0)
+                                const SizedBox(width: 8),
+                              if (dayExpense > 0)
+                                Text(
+                                  '- ${CurrencyFormatter.format(dayExpense)}',
+                                  style: TextStyle(
+                                      color: context.colors.expense,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                      ...dayTxns.map((t) => _TransactionItem(
-                            transaction: t,
-                            category:
-                                t.categoryId != null
-                                    ? catMap[t.categoryId]
-                                    : null,
-                            account: accMap[t.accountId],
-                            toAccount: t.toAccountId != null
-                                ? accMap[t.toAccountId]
-                                : null,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    AddEditTransactionScreen(
-                                        existing: t),
-                                fullscreenDialog: true,
+                        ...dayTxns.map((t) => _TransactionItem(
+                              transaction: t,
+                              category: t.categoryId != null
+                                  ? catMap[t.categoryId]
+                                  : null,
+                              account: accMap[t.accountId],
+                              toAccount: t.toAccountId != null
+                                  ? accMap[t.toAccountId]
+                                  : null,
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      AddEditTransactionScreen(existing: t),
+                                  fullscreenDialog: true,
+                                ),
                               ),
-                            ),
-                            onDelete: () async {
-                              final db = ref.read(databaseProvider);
-                              await db.deleteTransactionWithBalanceUpdate(t);
-                            },
-                          )),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
+                              onDelete: () async {
+                                final db = ref.read(databaseProvider);
+                                await db
+                                    .deleteTransactionWithBalanceUpdate(t);
+                              },
+                            )),
+                      ],
+                    );
+                  },
+                  childCount: dates.length,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
 
     final searchAction = IconButton(

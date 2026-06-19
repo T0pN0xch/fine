@@ -130,11 +130,6 @@ final categorySpendingProvider = FutureProvider<Map<int, double>>((ref) {
   return db.getCategorySpending(month.year, month.month);
 });
 
-final monthlyTotalsProvider =
-    FutureProvider<List<Map<String, dynamic>>>((ref) {
-  return ref.watch(databaseProvider).getMonthlyTotals();
-});
-
 final weeklySpendingProvider =
     FutureProvider<List<MapEntry<DateTime, double>>>((ref) {
   ref.watch(monthlyTransactionsProvider);
@@ -258,6 +253,28 @@ final insightsDailySpendingProvider =
     FutureProvider<List<MapEntry<DateTime, double>>>((ref) {
   final tf = ref.watch(insightsTimeframeProvider);
   return ref.watch(databaseProvider).getDailySpendingByRange(tf.start, tf.end);
+});
+
+/// Income/expense totals bucketed at a granularity matching the current
+/// Insights timeframe: by day for "week", by week for "month", by month
+/// for "year" (and for a custom range, sized to roughly fit ~6-8 buckets).
+final insightsOverviewBucketsProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) {
+  final tf = ref.watch(insightsTimeframeProvider);
+  final db = ref.watch(databaseProvider);
+  switch (tf.type) {
+    case InsightsTimeframeType.week:
+      return db.getIncomeExpenseByDayRange(tf.start, tf.end);
+    case InsightsTimeframeType.month:
+      return db.getIncomeExpenseByWeekRange(tf.start, tf.end);
+    case InsightsTimeframeType.year:
+      return db.getIncomeExpenseByMonthRange(tf.start, tf.end);
+    case InsightsTimeframeType.custom:
+      final days = tf.end.difference(tf.start).inDays;
+      if (days <= 31) return db.getIncomeExpenseByDayRange(tf.start, tf.end);
+      if (days <= 120) return db.getIncomeExpenseByWeekRange(tf.start, tf.end);
+      return db.getIncomeExpenseByMonthRange(tf.start, tf.end);
+  }
 });
 
 // ── Future Plan & Commitment ─────────────────────────────────────────────────

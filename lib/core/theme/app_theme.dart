@@ -19,6 +19,21 @@ class AppColors {
   // Pastel palette for Goals cards (kept as alias of the same family for consistency)
   static const List<Color> goalColors = categoryColors;
 
+  // Solid, vivid palette (no grey/black) for charts where pastel/desaturated
+  // colors are hard to tell apart, e.g. the pie chart slices.
+  static const List<Color> vividColors = [
+    Color(0xFF8B7CF6), // purple
+    Color(0xFF34C98E), // green
+    Color(0xFFFF6B8A), // pink
+    Color(0xFFFFC542), // yellow
+    Color(0xFF45C4E8), // sky blue
+    Color(0xFFB07CF0), // violet
+    Color(0xFF7ED957), // lime green
+    Color(0xFFFF935E), // orange
+    Color(0xFFE05DD0), // magenta
+    Color(0xFF5B8CF0), // periwinkle blue
+  ];
+
   // Darker, more saturated variant of a pastel, for progress-bar fills on top of it.
   static Color progressFillFor(Color pastel) {
     final hsl = HSLColor.fromColor(pastel);

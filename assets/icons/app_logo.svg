@@ -1,0 +1,27 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9B8FF0"/>
+      <stop offset="1" stop-color="#7A6FE0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
+
+  <!-- wallet body -->
+  <rect x="222" y="372" width="580" height="430" rx="56" fill="#FFFFFF"/>
+  <!-- wallet flap shadow -->
+  <path d="M222 452 L222 428 a56 56 0 0 1 56 -56 L688 372 a56 56 0 0 1 56 56 L744 452 Z" fill="#EDEAFB"/>
+  <!-- wallet front fold line -->
+  <rect x="222" y="372" width="580" height="430" rx="56" fill="none" stroke="#DCD6F7" stroke-width="6"/>
+
+  <!-- coin / clasp circle -->
+  <circle cx="700" cy="560" r="78" fill="#FFC542"/>
+  <circle cx="700" cy="560" r="78" fill="none" stroke="#F0AE1E" stroke-width="10"/>
+  <text x="700" y="592" font-family="Arial, sans-serif" font-size="84" font-weight="700" fill="#F0AE1E" text-anchor="middle">$</text>
+
+  <!-- bill peeking out -->
+  <rect x="270" y="430" width="260" height="150" rx="18" fill="#9FE1CB"/>
+  <rect x="270" y="430" width="260" height="150" rx="18" fill="none" stroke="#6FCBA8" stroke-width="6"/>
+  <circle cx="400" cy="505" r="34" fill="#FFFFFF"/>
+</svg>

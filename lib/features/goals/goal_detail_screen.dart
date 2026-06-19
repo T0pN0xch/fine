@@ -68,7 +68,11 @@ class GoalDetailScreen extends ConsumerWidget {
                 Text('Savings Progress',
                     style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 12),
-                _SavingsChart(topUps: topUps),
+                _SavingsChart(
+                  topUps: topUps,
+                  color: AppColors.goalColors[
+                      currentGoal.colorIndex % AppColors.goalColors.length],
+                ),
                 const SizedBox(height: 24),
               ],
               Text('Top-Ups', style: Theme.of(context).textTheme.titleLarge),
@@ -324,19 +328,34 @@ class _GoalHeader extends StatelessWidget {
 
 // ── Savings Chart ─────────────────────────────────────────────────────────────
 
-class _SavingsChart extends StatelessWidget {
+class _SavingsChart extends StatefulWidget {
   final List<GoalTopUp> topUps;
-  const _SavingsChart({required this.topUps});
+  final Color color;
+  const _SavingsChart({required this.topUps, required this.color});
+
+  @override
+  State<_SavingsChart> createState() => _SavingsChartState();
+}
+
+class _SavingsChartState extends State<_SavingsChart> {
+  int? _touchedIndex;
 
   @override
   Widget build(BuildContext context) {
-    final sorted = [...topUps]..sort((a, b) => a.date.compareTo(b.date));
+    final sorted = [...widget.topUps]..sort((a, b) => a.date.compareTo(b.date));
     double running = 0;
     final spots = <FlSpot>[];
+    final dates = <DateTime>[];
     for (int i = 0; i < sorted.length; i++) {
       running += sorted[i].amount;
       spots.add(FlSpot(i.toDouble(), running));
+      dates.add(sorted[i].date);
     }
+
+    final color = AppColors.progressFillFor(widget.color);
+    final labelInterval = (dates.length / 5).ceil().clamp(1, 1000).toDouble();
+    final defaultIndex = spots.length - 1;
+    final activeIndex = _touchedIndex ?? defaultIndex;
 
     return Container(
       height: 180,
@@ -349,15 +368,122 @@ class _SavingsChart extends StatelessWidget {
       child: LineChart(
         LineChartData(
           gridData: const FlGridData(show: false),
-          titlesData: const FlTitlesData(show: false),
+          titlesData: FlTitlesData(
+            show: true,
+            leftTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 20,
+                interval: labelInterval,
+                getTitlesWidget: (value, _) {
+                  final idx = value.round();
+                  if (idx < 0 || idx >= dates.length) {
+                    return const SizedBox.shrink();
+                  }
+                  return Text(
+                    DateFormatter.formatShortDate(dates[idx]),
+                    style: TextStyle(
+                        color: context.colors.textHint, fontSize: 10),
+                  );
+                },
+              ),
+            ),
+          ),
           borderData: FlBorderData(show: false),
+          showingTooltipIndicators: [
+            ShowingTooltipIndicators([
+              LineBarSpot(
+                LineChartBarData(spots: spots),
+                0,
+                spots[activeIndex],
+              ),
+            ]),
+          ],
+          lineTouchData: LineTouchData(
+            enabled: true,
+            touchSpotThreshold: 40,
+            handleBuiltInTouches: false,
+            touchCallback: (event, response) {
+              final spot = response?.lineBarSpots?.firstOrNull;
+              if (spot == null) return;
+              if (event is FlTapUpEvent ||
+                  event is FlPanEndEvent ||
+                  event is FlLongPressEnd ||
+                  event is FlPanUpdateEvent ||
+                  event is FlPointerHoverEvent ||
+                  event is FlTapDownEvent ||
+                  event is FlLongPressMoveUpdate) {
+                setState(() => _touchedIndex = spot.x.toInt());
+              }
+            },
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (_) => color,
+              tooltipPadding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              tooltipMargin: 12,
+              getTooltipItems: (touchedSpots) => touchedSpots.map((s) {
+                final idx = s.x.toInt();
+                final date = idx >= 0 && idx < dates.length ? dates[idx] : null;
+                return LineTooltipItem(
+                  CurrencyFormatter.formatCompact(s.y),
+                  const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700),
+                  children: date != null
+                      ? [
+                          TextSpan(
+                            text: '\n${DateFormatter.formatDate(date)}',
+                            style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500),
+                          ),
+                        ]
+                      : null,
+                );
+              }).toList(),
+            ),
+            getTouchedSpotIndicator: (barData, indicators) {
+              return indicators.map((i) {
+                return TouchedSpotIndicatorData(
+                  FlLine(color: color, strokeWidth: 1.5),
+                  FlDotData(
+                    getDotPainter: (spot, percent, bar, index) =>
+                        FlDotCirclePainter(
+                      radius: 5,
+                      color: Colors.white,
+                      strokeWidth: 3,
+                      strokeColor: color,
+                    ),
+                  ),
+                );
+              }).toList();
+            },
+          ),
           lineBarsData: [
             LineChartBarData(
               spots: spots,
               isCurved: true,
-              color: context.colors.primary,
+              curveSmoothness: 0.35,
+              color: color,
               barWidth: 2.5,
-              dotData: const FlDotData(show: false),
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, bar, index) =>
+                    FlDotCirclePainter(
+                  radius: 3,
+                  color: Colors.white,
+                  strokeWidth: 2,
+                  strokeColor: color,
+                ),
+              ),
               belowBarData: BarAreaData(
                 show: true,
                 color: context.colors.surfaceVariant,
@@ -365,6 +491,8 @@ class _SavingsChart extends StatelessWidget {
             ),
           ],
         ),
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
       ),
     );
   }

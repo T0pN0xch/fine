@@ -59,7 +59,12 @@ class AccountDetailScreen extends ConsumerWidget {
               if (txns.isNotEmpty) ...[
                 Text('Money Flow', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 12),
-                _MoneyFlowChart(transactions: txns, accountId: account.id),
+                _MoneyFlowChart(
+                  transactions: txns,
+                  accountId: account.id,
+                  color: AppColors.categoryColors[
+                      account.colorIndex % AppColors.categoryColors.length],
+                ),
                 const SizedBox(height: 24),
               ],
               Text('Transactions', style: Theme.of(context).textTheme.titleLarge),
@@ -179,7 +184,11 @@ class _BalanceHeader extends StatelessWidget {
 class _MoneyFlowChart extends StatefulWidget {
   final List<Transaction> transactions;
   final int accountId;
-  const _MoneyFlowChart({required this.transactions, required this.accountId});
+  final Color color;
+  const _MoneyFlowChart(
+      {required this.transactions,
+      required this.accountId,
+      required this.color});
 
   @override
   State<_MoneyFlowChart> createState() => _MoneyFlowChartState();
@@ -210,7 +219,7 @@ class _MoneyFlowChartState extends State<_MoneyFlowChart> {
       dates.add(t.date);
     }
 
-    final color = context.colors.primary;
+    final color = AppColors.progressFillFor(widget.color);
     final labelInterval = (dates.length / 5).ceil().clamp(1, 1000).toDouble();
     final defaultIndex = spots.length - 1;
     final activeIndex = _touchedIndex ?? defaultIndex;
@@ -333,7 +342,16 @@ class _MoneyFlowChartState extends State<_MoneyFlowChart> {
               curveSmoothness: 0.35,
               color: color,
               barWidth: 2.5,
-              dotData: const FlDotData(show: false),
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, bar, index) =>
+                    FlDotCirclePainter(
+                  radius: 3,
+                  color: Colors.white,
+                  strokeWidth: 2,
+                  strokeColor: color,
+                ),
+              ),
               belowBarData: BarAreaData(
                 show: true,
                 color: context.colors.surfaceVariant,

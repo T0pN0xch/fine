@@ -1053,6 +1053,104 @@ class AppDatabase extends _$AppDatabase {
     return result.fold<double>(0.0, (sum, t) => sum + t.amount);
   }
 
+  /// Income/expense totals per day across the given range, oldest first,
+  /// zero-filled per day. Used to build the Insights "Overview" bar chart
+  /// at day granularity (e.g. for a weekly timeframe).
+  Future<List<Map<String, dynamic>>> getIncomeExpenseByDayRange(
+      DateTime start, DateTime end) async {
+    final startDay = DateTime(start.year, start.month, start.day);
+    final endDay = DateTime(end.year, end.month, end.day);
+    final txns = await (select(transactions)
+          ..where((t) => t.date.isBetweenValues(startDay,
+              endDay.add(const Duration(hours: 23, minutes: 59, seconds: 59)))))
+        .get();
+
+    final income = <DateTime, double>{};
+    final expense = <DateTime, double>{};
+    for (var d = startDay; !d.isAfter(endDay); d = d.add(const Duration(days: 1))) {
+      income[d] = 0.0;
+      expense[d] = 0.0;
+    }
+    for (final t in txns) {
+      final day = DateTime(t.date.year, t.date.month, t.date.day);
+      if (!income.containsKey(day)) continue;
+      if (t.type == 'income') {
+        income[day] = income[day]! + t.amount;
+      } else if (t.type == 'expense') {
+        expense[day] = expense[day]! + t.amount;
+      }
+    }
+    return income.keys
+        .map((d) => {
+              'date': d,
+              'income': income[d]!,
+              'expense': expense[d]!,
+            })
+        .toList();
+  }
+
+  /// Income/expense totals per ISO week across the given range, oldest
+  /// first. Used for the Insights "Overview" bar chart at week granularity
+  /// (e.g. for a monthly timeframe).
+  Future<List<Map<String, dynamic>>> getIncomeExpenseByWeekRange(
+      DateTime start, DateTime end) async {
+    final startDay = DateTime(start.year, start.month, start.day);
+    final endDay = DateTime(end.year, end.month, end.day);
+    final txns = await (select(transactions)
+          ..where((t) => t.date.isBetweenValues(startDay,
+              endDay.add(const Duration(hours: 23, minutes: 59, seconds: 59)))))
+        .get();
+
+    final weekStarts = <DateTime>[];
+    for (var d = startDay; !d.isAfter(endDay); d = d.add(const Duration(days: 7))) {
+      weekStarts.add(d);
+    }
+    final income = {for (final w in weekStarts) w: 0.0};
+    final expense = {for (final w in weekStarts) w: 0.0};
+    for (final t in txns) {
+      final day = DateTime(t.date.year, t.date.month, t.date.day);
+      final offsetDays = day.difference(startDay).inDays;
+      final weekIndex = (offsetDays / 7).floor().clamp(0, weekStarts.length - 1);
+      final weekStart = weekStarts[weekIndex];
+      if (t.type == 'income') {
+        income[weekStart] = income[weekStart]! + t.amount;
+      } else if (t.type == 'expense') {
+        expense[weekStart] = expense[weekStart]! + t.amount;
+      }
+    }
+    return weekStarts
+        .map((w) => {
+              'date': w,
+              'income': income[w]!,
+              'expense': expense[w]!,
+            })
+        .toList();
+  }
+
+  /// Income/expense totals per month across the given range, oldest first.
+  /// Used for the Insights "Overview" bar chart at month granularity
+  /// (e.g. for a yearly timeframe).
+  Future<List<Map<String, dynamic>>> getIncomeExpenseByMonthRange(
+      DateTime start, DateTime end) async {
+    final result = <Map<String, dynamic>>[];
+    var cursor = DateTime(start.year, start.month, 1);
+    final last = DateTime(end.year, end.month, 1);
+    while (!cursor.isAfter(last)) {
+      final income =
+          await getTotalByTypeAndMonth('income', cursor.year, cursor.month);
+      final expense =
+          await getTotalByTypeAndMonth('expense', cursor.year, cursor.month);
+      result.add({
+        'year': cursor.year,
+        'month': cursor.month,
+        'income': income,
+        'expense': expense,
+      });
+      cursor = DateTime(cursor.year, cursor.month + 1, 1);
+    }
+    return result;
+  }
+
   /// Daily expense totals across the given range, oldest first, zero-filled per day.
   Future<List<MapEntry<DateTime, double>>> getDailySpendingByRange(
       DateTime start, DateTime end) async {
@@ -1102,26 +1200,6 @@ class AppDatabase extends _$AppDatabase {
       }
     }
     return totals.entries.toList();
-  }
-
-  Future<List<Map<String, dynamic>>> getMonthlyTotals({int months = 6}) async {
-    final result = <Map<String, dynamic>>[];
-    final now = DateTime.now();
-
-    for (int i = months - 1; i >= 0; i--) {
-      final date = DateTime(now.year, now.month - i);
-      final income =
-          await getTotalByTypeAndMonth('income', date.year, date.month);
-      final expense =
-          await getTotalByTypeAndMonth('expense', date.year, date.month);
-      result.add({
-        'year': date.year,
-        'month': date.month,
-        'income': income,
-        'expense': expense,
-      });
-    }
-    return result;
   }
 
   /// Daily expense totals for the 7 days ending today, oldest first.

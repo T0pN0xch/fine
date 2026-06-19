@@ -67,29 +67,25 @@ class _BottomNavBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _NavItem(
-                icon: Icons.home_outlined,
-                activeIcon: Icons.home,
+                emoji: '🏠',
                 label: 'Home',
                 selected: selectedIndex == 0,
                 onTap: () => onTap(0),
               ),
               _NavItem(
-                icon: Icons.account_balance_wallet_outlined,
-                activeIcon: Icons.account_balance_wallet,
+                emoji: '👛',
                 label: 'Wallet',
                 selected: selectedIndex == 1,
                 onTap: () => onTap(1),
               ),
               _NavItem(
-                icon: Icons.bar_chart_outlined,
-                activeIcon: Icons.bar_chart,
+                emoji: '📊',
                 label: 'Insights',
                 selected: selectedIndex == 2,
                 onTap: () => onTap(2),
               ),
               _NavItem(
-                icon: Icons.flag_outlined,
-                activeIcon: Icons.flag,
+                emoji: '🚩',
                 label: 'Goals',
                 selected: selectedIndex == 3,
                 onTap: () => onTap(3),
@@ -103,15 +99,13 @@ class _BottomNavBar extends StatelessWidget {
 }
 
 class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final IconData activeIcon;
+  final String emoji;
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
   const _NavItem({
-    required this.icon,
-    required this.activeIcon,
+    required this.emoji,
     required this.label,
     required this.selected,
     required this.onTap,
@@ -119,7 +113,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
+    final labelColor =
         selected ? context.colors.primary : context.colors.textSecondary;
     return BouncyTap(
       onTap: onTap,
@@ -133,18 +127,11 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedSwitcher(
+            AnimatedScale(
               duration: const Duration(milliseconds: 200),
-              transitionBuilder: (child, animation) => ScaleTransition(
-                scale: animation,
-                child: child,
-              ),
-              child: Icon(
-                selected ? activeIcon : icon,
-                key: ValueKey(selected),
-                color: color,
-                size: 25,
-              ),
+              curve: Curves.elasticOut,
+              scale: selected ? 1.15 : 1.0,
+              child: Text(emoji, style: const TextStyle(fontSize: 22)),
             ),
             const SizedBox(height: 3),
             Text(
@@ -153,7 +140,7 @@ class _NavItem extends StatelessWidget {
                 fontSize: 11,
                 fontWeight:
                     selected ? FontWeight.w700 : FontWeight.w500,
-                color: color,
+                color: labelColor,
               ),
             ),
           ],

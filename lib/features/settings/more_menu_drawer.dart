@@ -35,12 +35,14 @@ class MoreMenuDrawer extends ConsumerWidget {
                   Container(
                     width: 56,
                     height: 56,
-                    decoration: BoxDecoration(
-                      color: context.colors.primaryLight,
+                    decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                     ),
-                    child: const Center(
-                        child: Text('😊', style: TextStyle(fontSize: 28))),
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.asset(
+                      'assets/icons/app_logo.png',
+                      fit: BoxFit.cover,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   const Column(

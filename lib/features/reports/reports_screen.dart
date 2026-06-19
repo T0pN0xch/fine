@@ -17,7 +17,7 @@ class ReportsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final timeframe = ref.watch(insightsTimeframeProvider);
     final spendingAsync = ref.watch(insightsCategorySpendingProvider);
-    final monthlyTotalsAsync = ref.watch(monthlyTotalsProvider);
+    final overviewBucketsAsync = ref.watch(insightsOverviewBucketsProvider);
     final categoriesAsync = ref.watch(allCategoriesProvider);
     final incomeAsync = ref.watch(insightsIncomeProvider);
     final expenseAsync = ref.watch(insightsExpenseProvider);
@@ -132,14 +132,15 @@ class ReportsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
 
-          _SectionTitle('Monthly Overview'),
+          _SectionTitle(_overviewTitle(timeframe.type)),
           const SizedBox(height: 12),
-          monthlyTotalsAsync.when(
+          overviewBucketsAsync.when(
             loading: () => const SizedBox(
                 height: 200,
                 child: Center(child: CircularProgressIndicator())),
             error: (_, __) => const SizedBox.shrink(),
-            data: (totals) => _MonthlyBarChart(totals: totals),
+            data: (buckets) => _OverviewBarChart(
+                buckets: buckets, timeframeType: timeframe.type),
           ),
           const SizedBox(height: 24),
 
@@ -208,6 +209,19 @@ class ReportsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _overviewTitle(InsightsTimeframeType type) {
+    switch (type) {
+      case InsightsTimeframeType.week:
+        return 'Daily Overview';
+      case InsightsTimeframeType.month:
+        return 'Weekly Overview';
+      case InsightsTimeframeType.year:
+        return 'Monthly Overview';
+      case InsightsTimeframeType.custom:
+        return 'Overview';
+    }
   }
 }
 
@@ -404,15 +418,16 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-// ── Monthly Bar Chart ─────────────────────────────────────────────────────────
+// ── Overview Bar Chart ────────────────────────────────────────────────────────
 
-class _MonthlyBarChart extends StatelessWidget {
-  final List<Map<String, dynamic>> totals;
-  const _MonthlyBarChart({required this.totals});
+class _OverviewBarChart extends StatelessWidget {
+  final List<Map<String, dynamic>> buckets;
+  final InsightsTimeframeType timeframeType;
+  const _OverviewBarChart({required this.buckets, required this.timeframeType});
 
   @override
   Widget build(BuildContext context) {
-    final maxVal = totals.fold<double>(0, (m, t) {
+    final maxVal = buckets.fold<double>(0, (m, t) {
       final inc = (t['income'] as double?) ?? 0;
       final exp = (t['expense'] as double?) ?? 0;
       return m > inc
@@ -445,12 +460,11 @@ class _MonthlyBarChart extends StatelessWidget {
                 showTitles: true,
                 getTitlesWidget: (value, _) {
                   final idx = value.toInt();
-                  if (idx < 0 || idx >= totals.length) {
+                  if (idx < 0 || idx >= buckets.length) {
                     return const SizedBox.shrink();
                   }
-                  final month = totals[idx]['month'] as int;
                   return Text(
-                    _monthAbbr(month),
+                    _bucketLabel(buckets[idx]),
                     style: TextStyle(
                         fontSize: 10, color: context.colors.textSecondary),
                   );
@@ -468,9 +482,9 @@ class _MonthlyBarChart extends StatelessWidget {
             ),
           ),
           borderData: FlBorderData(show: false),
-          barGroups: List.generate(totals.length, (i) {
-            final income = (totals[i]['income'] as double?) ?? 0;
-            final expense = (totals[i]['expense'] as double?) ?? 0;
+          barGroups: List.generate(buckets.length, (i) {
+            final income = (buckets[i]['income'] as double?) ?? 0;
+            final expense = (buckets[i]['expense'] as double?) ?? 0;
             return BarChartGroupData(
               x: i,
               barRods: [
@@ -493,6 +507,23 @@ class _MonthlyBarChart extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _bucketLabel(Map<String, dynamic> bucket) {
+    switch (timeframeType) {
+      case InsightsTimeframeType.week:
+        final date = bucket['date'] as DateTime;
+        return DateFormat('E').format(date);
+      case InsightsTimeframeType.month:
+        final date = bucket['date'] as DateTime;
+        return DateFormat('d MMM').format(date);
+      case InsightsTimeframeType.year:
+        return _monthAbbr(bucket['month'] as int);
+      case InsightsTimeframeType.custom:
+        final date = bucket['date'] as DateTime?;
+        if (date != null) return DateFormat('d/M').format(date);
+        return _monthAbbr(bucket['month'] as int);
+    }
   }
 
   String _monthAbbr(int month) {
@@ -533,8 +564,8 @@ class _ExpensePieChartState extends State<_ExpensePieChart> {
                 sections: List.generate(widget.entries.length, (i) {
                   final e = widget.entries[i];
                   final cat = widget.categories[e.key];
-                  final color = AppColors.categoryColors[
-                      (cat?.colorIndex ?? i) % AppColors.categoryColors.length];
+                  final color = AppColors.vividColors[
+                      (cat?.colorIndex ?? i) % AppColors.vividColors.length];
                   final isTouched = i == _touchedIndex;
                   return PieChartSectionData(
                     value: e.value,
@@ -572,8 +603,8 @@ class _ExpensePieChartState extends State<_ExpensePieChart> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: widget.entries.take(5).map((e) {
               final cat = widget.categories[e.key];
-              final color = AppColors.categoryColors[
-                  (cat?.colorIndex ?? 0) % AppColors.categoryColors.length];
+              final color = AppColors.vividColors[
+                  (cat?.colorIndex ?? 0) % AppColors.vividColors.length];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 6, left: 12),
                 child: Row(
