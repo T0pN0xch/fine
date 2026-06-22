@@ -103,6 +103,12 @@ class _AddEditTransactionScreenState
       _selectedCategory = cats.firstWhere(
           (c) => c.id == widget.existing!.categoryId,
           orElse: () => cats.first);
+    } else if (cats.isNotEmpty && !isEditing && _selectedCategory == null) {
+      final expenseCats = cats.where((c) => c.type == 'expense').toList();
+      _selectedCategory = expenseCats
+              .where((c) => c.name.toLowerCase() == 'food & drinks')
+              .firstOrNull ??
+          (expenseCats.isNotEmpty ? expenseCats.first : null);
     }
     if (!_memberInitialized && members.isNotEmpty) {
       _memberInitialized = true;

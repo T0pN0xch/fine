@@ -12,7 +12,7 @@ import 'search_screen.dart';
 import '../settings/more_menu_drawer.dart';
 import '../../core/widgets/bouncy_tap.dart';
 
-class TransactionsScreen extends ConsumerWidget {
+class TransactionsScreen extends ConsumerStatefulWidget {
   /// When true, shown as a standalone pushed route (from Dashboard "See all").
   final bool standalone;
   /// When true, shows the total pocket-money balance banner (Home tab).
@@ -21,20 +21,69 @@ class TransactionsScreen extends ConsumerWidget {
       {super.key, this.standalone = false, this.showBalance = false});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TransactionsScreen> createState() => _TransactionsScreenState();
+}
+
+class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
+  final _scrollController = ScrollController();
+  bool _showScrollToTop = false;
+
+  // Roughly the height of the header plus a few days of transaction cards —
+  // the button should only appear once the user has scrolled well past it.
+  static const _scrollToTopThreshold = 480.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final shouldShow = _scrollController.offset > _scrollToTopThreshold;
+    if (shouldShow != _showScrollToTop) {
+      setState(() => _showScrollToTop = shouldShow);
+    }
+  }
+
+  void _scrollToTop() {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  bool get standalone => widget.standalone;
+  bool get showBalance => widget.showBalance;
+
+  @override
+  Widget build(BuildContext context) {
     final month = ref.watch(selectedMonthProvider);
-    final txnsAsync = ref.watch(monthlyTransactionsProvider);
+    final txnsAsync = showBalance
+        ? ref.watch(allTransactionsProvider)
+        : ref.watch(monthlyTransactionsProvider);
     final incomeAsync = ref.watch(monthlyIncomeProvider);
     final expenseAsync = ref.watch(monthlyExpenseProvider);
     final categoriesAsync = ref.watch(allCategoriesProvider);
     final accountsAsync = ref.watch(accountsProvider);
     final totalBalanceAsync = ref.watch(totalBalanceProvider);
+    final membersAsync = ref.watch(membersProvider);
 
     final catMap = {
       for (final c in categoriesAsync.valueOrNull ?? <Category>[]) c.id: c
     };
     final accMap = {
       for (final a in accountsAsync.valueOrNull ?? <Account>[]) a.id: a
+    };
+    final memberMap = {
+      for (final m in membersAsync.valueOrNull ?? <Member>[]) m.id: m
     };
 
     final weeklySpendingAsync = ref.watch(weeklySpendingProvider);
@@ -92,6 +141,7 @@ class TransactionsScreen extends ConsumerWidget {
       data: (txns) {
         if (txns.isEmpty) {
           return CustomScrollView(
+            controller: _scrollController,
             slivers: [
               SliverToBoxAdapter(child: headerWidget),
               SliverFillRemaining(
@@ -131,6 +181,7 @@ class TransactionsScreen extends ConsumerWidget {
         final dates = groups.keys.toList()..sort((a, b) => b.compareTo(a));
 
         return CustomScrollView(
+          controller: _scrollController,
           slivers: [
             SliverToBoxAdapter(child: headerWidget),
             SliverPadding(
@@ -192,6 +243,9 @@ class TransactionsScreen extends ConsumerWidget {
                               account: accMap[t.accountId],
                               toAccount: t.toAccountId != null
                                   ? accMap[t.toAccountId]
+                                  : null,
+                              member: t.memberId != null
+                                  ? memberMap[t.memberId]
                                   : null,
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute(
@@ -261,7 +315,49 @@ class TransactionsScreen extends ConsumerWidget {
         title: Text(showBalance ? 'Home' : 'Transactions'),
         actions: [searchAction],
       ),
-      body: body,
+      body: showBalance
+          ? Stack(
+              children: [
+                body,
+                Positioned(
+                  top: 12,
+                  right: 16,
+                  child: AnimatedSlide(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    offset: _showScrollToTop ? Offset.zero : const Offset(0, -1.5),
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: _showScrollToTop ? 1 : 0,
+                      child: IgnorePointer(
+                        ignoring: !_showScrollToTop,
+                        child: BouncyTap(
+                          onTap: _scrollToTop,
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: context.colors.primary,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.keyboard_arrow_up,
+                                color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : body,
       floatingActionButton: showBalance
           ? BouncyTap(
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
@@ -617,6 +713,7 @@ class _TransactionItem extends StatelessWidget {
   final Category? category;
   final Account? account;
   final Account? toAccount;
+  final Member? member;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
 
@@ -625,6 +722,7 @@ class _TransactionItem extends StatelessWidget {
     this.category,
     this.account,
     this.toAccount,
+    this.member,
     this.onTap,
     this.onDelete,
   });
@@ -646,9 +744,13 @@ class _TransactionItem extends StatelessWidget {
 
     final icon = isTransfer ? '🔄' : category?.icon ?? '📦';
     final title = isTransfer ? 'Transfer' : category?.name ?? 'Other';
+    final note = transaction.note?.trim() ?? '';
+    final noteOrAccount = note.isNotEmpty ? note : account?.name ?? '';
     final subtitle = isTransfer && toAccount != null
         ? '${account?.name ?? ''} → ${toAccount!.name}'
-        : account?.name ?? '';
+        : member != null && noteOrAccount.isNotEmpty
+            ? '${member!.name} - $noteOrAccount'
+            : noteOrAccount;
 
     return Dismissible(
       key: ValueKey(transaction.id),
@@ -732,7 +834,9 @@ class _TransactionItem extends StatelessWidget {
                           fontSize: 14)),
                   const SizedBox(height: 2),
                   Text(
-                    DateFormatter.formatTime(transaction.date),
+                    note.isNotEmpty
+                        ? (account?.name ?? '')
+                        : DateFormatter.formatTime(transaction.date),
                     style: TextStyle(
                         color: context.colors.textHint, fontSize: 11),
                   ),

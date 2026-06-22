@@ -183,6 +183,10 @@ class Commitments extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
+  /// Opens the database with a caller-supplied executor — used for tests
+  /// and one-off data-migration tooling.
+  AppDatabase.withExecutor(QueryExecutor executor) : super(executor);
+
   @override
   int get schemaVersion => 7;
 
@@ -641,6 +645,35 @@ class AppDatabase extends _$AppDatabase {
     return result;
   }
 
+  /// Net worth sampled at the end of each month across [start, end]
+  /// (clamped to today for the current/future months), oldest first.
+  Future<List<MapEntry<DateTime, double>>> getNetWorthByMonthRange(
+      DateTime start, DateTime end) async {
+    final daily =
+        await getNetWorthHistory(DateTime(start.year, start.month, 1));
+    if (daily.isEmpty) return [];
+    final dailyMap = {for (final e in daily) e.key: e.value};
+    final earliestDay = daily.first.key;
+    final today = DateTime.now();
+
+    final result = <MapEntry<DateTime, double>>[];
+    var cursor = DateTime(start.year, start.month, 1);
+    final last = DateTime(end.year, end.month, 1);
+    while (!cursor.isAfter(last)) {
+      final monthEnd = DateTime(cursor.year, cursor.month + 1, 0);
+      final todayDay = DateTime(today.year, today.month, today.day);
+      var probe = monthEnd.isAfter(todayDay) ? todayDay : monthEnd;
+      double? value = dailyMap[probe];
+      while (value == null && probe.isAfter(earliestDay)) {
+        probe = probe.subtract(const Duration(days: 1));
+        value = dailyMap[probe];
+      }
+      result.add(MapEntry(cursor, value ?? 0));
+      cursor = DateTime(cursor.year, cursor.month + 1, 1);
+    }
+    return result;
+  }
+
   // ── Category queries ─────────────────────────────────────────────────────────
 
   Stream<List<Category>> watchCategoriesByType(String type) =>
@@ -696,6 +729,12 @@ class AppDatabase extends _$AppDatabase {
   Future<List<Transaction>> getAllTransactions() =>
       (select(transactions)..orderBy([(t) => OrderingTerm.desc(t.date)]))
           .get();
+
+  /// Unfiltered transactions stream — used purely as a change-invalidation
+  /// signal by providers whose totals span a range broader than one month.
+  Stream<List<Transaction>> watchAllTransactions() =>
+      (select(transactions)..orderBy([(t) => OrderingTerm.desc(t.date)]))
+          .watch();
 
   Stream<List<Transaction>> watchTransactionsForAccount(int accountId) {
     return (select(transactions)

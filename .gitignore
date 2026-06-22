@@ -44,3 +44,9 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .claude/
+
+# Personal data — never commit real database/backup exports
+*.sqlite
+*.sqlite3
+*.MoneyPlusPack
+assets/data/

@@ -16,6 +16,7 @@ class ReportsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final timeframe = ref.watch(insightsTimeframeProvider);
+    final viewMode = ref.watch(insightsViewModeProvider);
     final spendingAsync = ref.watch(insightsCategorySpendingProvider);
     final overviewBucketsAsync = ref.watch(insightsOverviewBucketsProvider);
     final categoriesAsync = ref.watch(allCategoriesProvider);
@@ -32,6 +33,65 @@ class ReportsScreen extends ConsumerWidget {
       for (final m in membersAsync.valueOrNull ?? <Member>[]) m.id: m
     };
 
+    final filterBar = _TimeframeFilterBar(
+      timeframe: timeframe,
+      viewMode: viewMode,
+      onViewModeChanged: (mode) =>
+          ref.read(insightsViewModeProvider.notifier).state = mode,
+      onTypeChanged: (type) {
+        if (type == InsightsTimeframeType.custom) return;
+        ref.read(insightsTimeframeProvider.notifier).state =
+            InsightsTimeframe(type: type, anchor: DateTime.now());
+      },
+      onPickCustomRange: () async {
+        final now = DateTime.now();
+        final picked = await showDateRangePicker(
+          context: context,
+          firstDate: DateTime(now.year - 5),
+          lastDate: DateTime(now.year + 1),
+          initialDateRange:
+              DateTimeRange(start: timeframe.start, end: timeframe.end),
+        );
+        if (picked != null) {
+          ref.read(insightsTimeframeProvider.notifier).state =
+              InsightsTimeframe(
+            type: InsightsTimeframeType.custom,
+            anchor: picked.start,
+            customStart: picked.start,
+            customEnd: DateTime(picked.end.year, picked.end.month,
+                picked.end.day, 23, 59, 59),
+          );
+        }
+      },
+      onPrev: () => ref.read(insightsTimeframeProvider.notifier).state =
+          timeframe.shift(-1),
+      onNext: () => ref.read(insightsTimeframeProvider.notifier).state =
+          timeframe.shift(1),
+    );
+
+    if (viewMode != InsightsViewMode.summary) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Insights'), elevation: 0),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+          children: [
+            filterBar,
+            const SizedBox(height: 16),
+            _YearSelector(
+              year: ref.watch(insightsTrendYearProvider),
+              onPrev: () => ref.read(insightsTrendYearProvider.notifier).state--,
+              onNext: () => ref.read(insightsTrendYearProvider.notifier).state++,
+            ),
+            const SizedBox(height: 16),
+            if (viewMode == InsightsViewMode.netWorthTrend)
+              const _NetWorthTrendSection()
+            else
+              const _IncomeExpenseTableSection(),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Insights'),
@@ -40,38 +100,7 @@ class ReportsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
         children: [
-          _TimeframeFilterBar(
-            timeframe: timeframe,
-            onTypeChanged: (type) {
-              if (type == InsightsTimeframeType.custom) return;
-              ref.read(insightsTimeframeProvider.notifier).state =
-                  InsightsTimeframe(type: type, anchor: DateTime.now());
-            },
-            onPickCustomRange: () async {
-              final now = DateTime.now();
-              final picked = await showDateRangePicker(
-                context: context,
-                firstDate: DateTime(now.year - 5),
-                lastDate: DateTime(now.year + 1),
-                initialDateRange: DateTimeRange(
-                    start: timeframe.start, end: timeframe.end),
-              );
-              if (picked != null) {
-                ref.read(insightsTimeframeProvider.notifier).state =
-                    InsightsTimeframe(
-                  type: InsightsTimeframeType.custom,
-                  anchor: picked.start,
-                  customStart: picked.start,
-                  customEnd: DateTime(picked.end.year, picked.end.month,
-                      picked.end.day, 23, 59, 59),
-                );
-              }
-            },
-            onPrev: () => ref.read(insightsTimeframeProvider.notifier).state =
-                timeframe.shift(-1),
-            onNext: () => ref.read(insightsTimeframeProvider.notifier).state =
-                timeframe.shift(1),
-          ),
+          filterBar,
           const SizedBox(height: 16),
 
           _SummaryRow(
@@ -225,6 +254,413 @@ class ReportsScreen extends ConsumerWidget {
   }
 }
 
+// ── Year Selector (Trend / Income-Expense views) ───────────────────────────────
+
+class _YearSelector extends StatelessWidget {
+  final int year;
+  final VoidCallback onPrev;
+  final VoidCallback onNext;
+  const _YearSelector(
+      {required this.year, required this.onPrev, required this.onNext});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        IconButton(
+          icon: Icon(Icons.chevron_left, color: context.colors.textPrimary),
+          onPressed: onPrev,
+          visualDensity: VisualDensity.compact,
+        ),
+        Expanded(
+          child: Text(
+            '$year',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: context.colors.textPrimary),
+          ),
+        ),
+        IconButton(
+          icon: Icon(Icons.chevron_right, color: context.colors.textPrimary),
+          onPressed: onNext,
+          visualDensity: VisualDensity.compact,
+        ),
+      ],
+    );
+  }
+}
+
+// ── Net Worth Trend (month-by-month) ────────────────────────────────────────────
+
+class _NetWorthTrendSection extends ConsumerWidget {
+  const _NetWorthTrendSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final netWorthAsync = ref.watch(yearlyNetWorthTrendProvider);
+    final incomeExpenseAsync = ref.watch(yearlyIncomeExpenseProvider);
+
+    return netWorthAsync.when(
+      loading: () => const SizedBox(
+          height: 200, child: Center(child: CircularProgressIndicator())),
+      error: (_, __) => const _EmptyChart(message: 'No data available'),
+      data: (netWorth) {
+        final monthlyDeltas = incomeExpenseAsync.valueOrNull;
+        final total = netWorth.isEmpty ? 0.0 : netWorth.last.value;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionTitle('Net Worth'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardTheme.color,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: context.colors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(CurrencyFormatter.format(total),
+                      style: TextStyle(
+                          color: context.colors.textPrimary,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 160,
+                    child: TrendLineChart(
+                      data: netWorth,
+                      color: context.colors.income,
+                      bottomLabel: (d) => DateFormat('MMM').format(d),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            _SectionTitle('Monthly Breakdown'),
+            const SizedBox(height: 12),
+            _BreakdownTable(
+              headers: const ['Month', 'Income/Expense', 'Balance'],
+              totalLabel: 'Total',
+              totalValues: [
+                monthlyDeltas == null
+                    ? ''
+                    : CurrencyFormatter.formatCompact(monthlyDeltas.fold(
+                        0.0,
+                        (s, m) =>
+                            s + (m['income'] as double) - (m['expense'] as double))),
+                CurrencyFormatter.format(total),
+              ],
+              rows: [
+                for (int i = netWorth.length - 1; i >= 0; i--)
+                  _BreakdownRowData(
+                    label: DateFormat('MMM').format(netWorth[i].key),
+                    values: [
+                      monthlyDeltas != null && i < monthlyDeltas.length
+                          ? CurrencyFormatter.formatCompact(
+                              (monthlyDeltas[i]['income'] as double) -
+                                  (monthlyDeltas[i]['expense'] as double))
+                          : '',
+                      CurrencyFormatter.format(netWorth[i].value),
+                    ],
+                  ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ── Income/Expense Table (month-by-month) ───────────────────────────────────────
+
+class _IncomeExpenseTableSection extends ConsumerWidget {
+  const _IncomeExpenseTableSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final monthlyAsync = ref.watch(yearlyIncomeExpenseProvider);
+
+    return monthlyAsync.when(
+      loading: () => const SizedBox(
+          height: 200, child: Center(child: CircularProgressIndicator())),
+      error: (_, __) => const _EmptyChart(message: 'No data available'),
+      data: (months) {
+        if (months.isEmpty || months.every((m) =>
+            (m['income'] as double) == 0 && (m['expense'] as double) == 0)) {
+          return const _EmptyChart(message: 'No transactions recorded this year');
+        }
+
+        final totalIncome =
+            months.fold(0.0, (s, m) => s + (m['income'] as double));
+        final totalExpense =
+            months.fold(0.0, (s, m) => s + (m['expense'] as double));
+
+        final incomeSpots = <FlSpot>[];
+        final expenseSpots = <FlSpot>[];
+        for (int i = 0; i < months.length; i++) {
+          incomeSpots.add(FlSpot(i.toDouble(), months[i]['income'] as double));
+          expenseSpots.add(FlSpot(i.toDouble(), months[i]['expense'] as double));
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionTitle('Income vs Expenses'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardTheme.color,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: context.colors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _LegendDot(color: context.colors.income, label: 'Income'),
+                      const SizedBox(width: 16),
+                      _LegendDot(color: context.colors.expense, label: 'Expenses'),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 180,
+                    child: LineChart(
+                      LineChartData(
+                        gridData: const FlGridData(show: false),
+                        borderData: FlBorderData(show: false),
+                        titlesData: FlTitlesData(
+                          leftTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          topTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 20,
+                              interval: 2,
+                              getTitlesWidget: (value, _) {
+                                final idx = value.round();
+                                if (idx < 0 || idx >= months.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Text(
+                                  DateFormat('MMM').format(DateTime(
+                                      months[idx]['year'] as int,
+                                      months[idx]['month'] as int)),
+                                  style: TextStyle(
+                                      color: context.colors.textHint,
+                                      fontSize: 10),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: incomeSpots,
+                            isCurved: true,
+                            color: context.colors.income,
+                            barWidth: 2.5,
+                            dotData: const FlDotData(show: false),
+                          ),
+                          LineChartBarData(
+                            spots: expenseSpots,
+                            isCurved: true,
+                            color: context.colors.expense,
+                            barWidth: 2.5,
+                            dotData: const FlDotData(show: false),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            _SectionTitle('Monthly Breakdown'),
+            const SizedBox(height: 12),
+            _BreakdownTable(
+              headers: const ['Month', 'Income', 'Expenses', 'Total'],
+              totalLabel: 'Total',
+              valueColors: [
+                context.colors.income,
+                context.colors.expense,
+                null,
+              ],
+              totalValues: [
+                CurrencyFormatter.formatCompact(totalIncome),
+                CurrencyFormatter.formatCompact(totalExpense),
+                CurrencyFormatter.format(totalIncome - totalExpense),
+              ],
+              rows: [
+                for (int i = months.length - 1; i >= 0; i--)
+                  if ((months[i]['income'] as double) != 0 ||
+                      (months[i]['expense'] as double) != 0)
+                    _BreakdownRowData(
+                      label: DateFormat('MMM').format(DateTime(
+                          months[i]['year'] as int, months[i]['month'] as int)),
+                      values: [
+                        CurrencyFormatter.formatCompact(months[i]['income'] as double),
+                        CurrencyFormatter.formatCompact(months[i]['expense'] as double),
+                        CurrencyFormatter.format(
+                            (months[i]['income'] as double) -
+                                (months[i]['expense'] as double)),
+                      ],
+                    ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _LegendDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 6),
+        Text(label,
+            style: TextStyle(color: context.colors.textSecondary, fontSize: 12)),
+      ],
+    );
+  }
+}
+
+// ── Shared Breakdown Table ──────────────────────────────────────────────────────
+
+class _BreakdownRowData {
+  final String label;
+  final List<String> values;
+  const _BreakdownRowData({required this.label, required this.values});
+}
+
+class _BreakdownTable extends StatelessWidget {
+  final List<String> headers;
+  final String totalLabel;
+  final List<String> totalValues;
+  final List<_BreakdownRowData> rows;
+  final List<Color?>? valueColors;
+  const _BreakdownTable({
+    required this.headers,
+    required this.totalLabel,
+    required this.totalValues,
+    required this.rows,
+    this.valueColors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardTheme.color,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.colors.border),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              children: [
+                Expanded(
+                    child: Text(headers.first,
+                        style: TextStyle(
+                            color: context.colors.textHint,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700))),
+                ...headers.skip(1).map((h) => Expanded(
+                      child: Text(h,
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                              color: context.colors.textHint,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700)),
+                    )),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: context.colors.border),
+          _BreakdownRow(
+              label: totalLabel,
+              values: totalValues,
+              valueColors: valueColors,
+              bold: true),
+          for (final r in rows)
+            _BreakdownRow(
+                label: r.label, values: r.values, valueColors: valueColors),
+        ],
+      ),
+    );
+  }
+}
+
+class _BreakdownRow extends StatelessWidget {
+  final String label;
+  final List<String> values;
+  final List<Color?>? valueColors;
+  final bool bold;
+  const _BreakdownRow(
+      {required this.label,
+      required this.values,
+      this.valueColors,
+      this.bold = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+              child: Text(label,
+                  style: TextStyle(
+                      color: context.colors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: bold ? FontWeight.w800 : FontWeight.w600))),
+          ...values.asMap().entries.map((entry) => Expanded(
+                child: Text(entry.value,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                        color: valueColors != null &&
+                                entry.key < valueColors!.length &&
+                                valueColors![entry.key] != null
+                            ? valueColors![entry.key]
+                            : context.colors.textPrimary,
+                        fontSize: 13,
+                        fontWeight: bold ? FontWeight.w800 : FontWeight.w600)),
+              )),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Summary Row ───────────────────────────────────────────────────────────────
 
 // ── Timeframe Filter Bar ──────────────────────────────────────────────────────
@@ -235,12 +671,16 @@ class _TimeframeFilterBar extends StatelessWidget {
   final VoidCallback onPickCustomRange;
   final VoidCallback onPrev;
   final VoidCallback onNext;
+  final InsightsViewMode viewMode;
+  final ValueChanged<InsightsViewMode> onViewModeChanged;
   const _TimeframeFilterBar({
     required this.timeframe,
     required this.onTypeChanged,
     required this.onPickCustomRange,
     required this.onPrev,
     required this.onNext,
+    required this.viewMode,
+    required this.onViewModeChanged,
   });
 
   static const _chips = [
@@ -250,47 +690,100 @@ class _TimeframeFilterBar extends StatelessWidget {
     (InsightsTimeframeType.custom, 'Custom'),
   ];
 
+  static const _modeChips = [
+    (InsightsViewMode.netWorthTrend, 'Trend'),
+    (InsightsViewMode.incomeExpenseTable, 'Income/Expense'),
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final isSummary = viewMode == InsightsViewMode.summary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: _chips.map((c) {
-              final selected = c.$1 == timeframe.type;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: GestureDetector(
-                  onTap: () => c.$1 == InsightsTimeframeType.custom
-                      ? onPickCustomRange()
-                      : onTypeChanged(c.$1),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 9),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? context.colors.primary
-                          : context.colors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      c.$2,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: selected ? Colors.white : context.colors.textSecondary,
+            children: [
+              ..._chips.map((c) {
+                final selected = isSummary && c.$1 == timeframe.type;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      onViewModeChanged(InsightsViewMode.summary);
+                      if (c.$1 == InsightsTimeframeType.custom) {
+                        onPickCustomRange();
+                      } else {
+                        onTypeChanged(c.$1);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? context.colors.primary
+                            : context.colors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        c.$2,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: selected
+                              ? Colors.white
+                              : context.colors.textSecondary,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            }).toList(),
+                );
+              }),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: 1,
+                height: 24,
+                color: context.colors.border,
+              ),
+              const SizedBox(width: 4),
+              ..._modeChips.map((c) {
+                final selected = c.$1 == viewMode;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => onViewModeChanged(c.$1),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? context.colors.income
+                            : context.colors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        c.$2,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: selected
+                              ? Colors.white
+                              : context.colors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ],
           ),
         ),
         const SizedBox(height: 12),
-        if (timeframe.type != InsightsTimeframeType.custom)
+        if (!isSummary)
+          const SizedBox.shrink()
+        else if (timeframe.type != InsightsTimeframeType.custom)
           Row(
             children: [
               IconButton(

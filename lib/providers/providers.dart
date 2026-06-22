@@ -85,15 +85,25 @@ final monthlyTransactionsProvider = StreamProvider<List<Transaction>>((ref) {
   return db.watchTransactionsByMonth(month.year, month.month);
 });
 
+/// Unfiltered transactions stream — every transaction ever recorded, newest
+/// first. Used both as the data source for the Home tab's full history list
+/// and as a change-invalidation signal for FutureProviders whose range can
+/// span beyond one month.
+final allTransactionsProvider = StreamProvider<List<Transaction>>((ref) {
+  return ref.watch(databaseProvider).watchAllTransactions();
+});
+
 final monthlyIncomeProvider = FutureProvider<double>((ref) {
   final db = ref.watch(databaseProvider);
   final month = ref.watch(selectedMonthProvider);
+  ref.watch(monthlyTransactionsProvider);
   return db.getTotalByTypeAndMonth('income', month.year, month.month);
 });
 
 final monthlyExpenseProvider = FutureProvider<double>((ref) {
   final db = ref.watch(databaseProvider);
   final month = ref.watch(selectedMonthProvider);
+  ref.watch(monthlyTransactionsProvider);
   return db.getTotalByTypeAndMonth('expense', month.year, month.month);
 });
 
@@ -127,6 +137,7 @@ final goalTopUpsProvider =
 final categorySpendingProvider = FutureProvider<Map<int, double>>((ref) {
   final db = ref.watch(databaseProvider);
   final month = ref.watch(selectedMonthProvider);
+  ref.watch(allTransactionsProvider);
   return db.getCategorySpending(month.year, month.month);
 });
 
@@ -227,16 +238,19 @@ final insightsTimeframeProvider =
 
 final insightsIncomeProvider = FutureProvider<double>((ref) {
   final tf = ref.watch(insightsTimeframeProvider);
+  ref.watch(allTransactionsProvider);
   return ref.watch(databaseProvider).getTotalByTypeAndRange('income', tf.start, tf.end);
 });
 
 final insightsExpenseProvider = FutureProvider<double>((ref) {
   final tf = ref.watch(insightsTimeframeProvider);
+  ref.watch(allTransactionsProvider);
   return ref.watch(databaseProvider).getTotalByTypeAndRange('expense', tf.start, tf.end);
 });
 
 final insightsCategorySpendingProvider = FutureProvider<Map<int, double>>((ref) {
   final tf = ref.watch(insightsTimeframeProvider);
+  ref.watch(allTransactionsProvider);
   return ref.watch(databaseProvider).getCategorySpendingByRange(tf.start, tf.end);
 });
 
@@ -244,6 +258,7 @@ final insightsCategorySpendingProvider = FutureProvider<Map<int, double>>((ref) 
 final insightsCategoryTransactionsProvider =
     FutureProvider.family<List<Transaction>, int>((ref, categoryId) {
   final tf = ref.watch(insightsTimeframeProvider);
+  ref.watch(allTransactionsProvider);
   return ref
       .watch(databaseProvider)
       .getTransactionsByCategoryAndRange(categoryId, tf.start, tf.end);
@@ -252,6 +267,7 @@ final insightsCategoryTransactionsProvider =
 final insightsDailySpendingProvider =
     FutureProvider<List<MapEntry<DateTime, double>>>((ref) {
   final tf = ref.watch(insightsTimeframeProvider);
+  ref.watch(allTransactionsProvider);
   return ref.watch(databaseProvider).getDailySpendingByRange(tf.start, tf.end);
 });
 
@@ -262,6 +278,7 @@ final insightsOverviewBucketsProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) {
   final tf = ref.watch(insightsTimeframeProvider);
   final db = ref.watch(databaseProvider);
+  ref.watch(allTransactionsProvider);
   switch (tf.type) {
     case InsightsTimeframeType.week:
       return db.getIncomeExpenseByDayRange(tf.start, tf.end);
@@ -275,6 +292,39 @@ final insightsOverviewBucketsProvider =
       if (days <= 120) return db.getIncomeExpenseByWeekRange(tf.start, tf.end);
       return db.getIncomeExpenseByMonthRange(tf.start, tf.end);
   }
+});
+
+/// Insights screen display mode: the default summary view, or one of the
+/// two month-by-month comparison views (income/expense table, net worth
+/// trend), both of which are anchored to a calendar year rather than the
+/// Weekly/Monthly/Yearly/Custom timeframe.
+enum InsightsViewMode { summary, incomeExpenseTable, netWorthTrend }
+
+final insightsViewModeProvider =
+    StateProvider<InsightsViewMode>((ref) => InsightsViewMode.summary);
+
+final insightsTrendYearProvider =
+    StateProvider<int>((ref) => DateTime.now().year);
+
+/// Income/expense totals per month for the selected trend year.
+final yearlyIncomeExpenseProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) {
+  final year = ref.watch(insightsTrendYearProvider);
+  ref.watch(allTransactionsProvider);
+  return ref
+      .watch(databaseProvider)
+      .getIncomeExpenseByMonthRange(DateTime(year, 1, 1), DateTime(year, 12, 1));
+});
+
+/// Net worth sampled at the end of each month for the selected trend year.
+final yearlyNetWorthTrendProvider =
+    FutureProvider<List<MapEntry<DateTime, double>>>((ref) {
+  final year = ref.watch(insightsTrendYearProvider);
+  ref.watch(allTransactionsProvider);
+  ref.watch(accountsProvider);
+  return ref
+      .watch(databaseProvider)
+      .getNetWorthByMonthRange(DateTime(year, 1, 1), DateTime(year, 12, 1));
 });
 
 // ── Future Plan & Commitment ─────────────────────────────────────────────────
