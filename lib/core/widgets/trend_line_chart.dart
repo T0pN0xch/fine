@@ -35,7 +35,10 @@ class _TrendLineChartState extends State<TrendLineChart> {
     ];
     final minY = spots.map((s) => s.y).reduce((a, b) => a < b ? a : b);
     final maxY = spots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
-    final pad = (maxY - minY).abs() * 0.2 + 1;
+    // Sparser series (e.g. 12 monthly points) read as cramped with the same
+    // tight padding used for dense daily series, so give them more headroom.
+    final padFactor = data.length <= 14 ? 0.35 : 0.2;
+    final pad = (maxY - minY).abs() * padFactor + 1;
     final labelInterval = (data.length / 5).ceil().clamp(1, 1000).toDouble();
     final defaultIndex = spots.length - 1;
     final activeIndex = _touchedIndex ?? defaultIndex;

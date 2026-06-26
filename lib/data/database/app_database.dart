@@ -771,14 +771,24 @@ class AppDatabase extends _$AppDatabase {
             ..where((b) => b.month.equals(month) & b.year.equals(year)))
           .get();
 
-  Future<BudgetLimit?> getBudgetForCategory(
-          int categoryId, int year, int month) =>
+  Stream<List<BudgetLimit>> watchBudgetsByMonth(int year, int month) =>
       (select(budgetLimits)
-            ..where((b) =>
-                b.categoryId.equals(categoryId) &
-                b.month.equals(month) &
-                b.year.equals(year)))
-          .getSingleOrNull();
+            ..where((b) => b.month.equals(month) & b.year.equals(year)))
+          .watch();
+
+  /// Returns the budget for this category/month, or null if none is set.
+  /// Uses the first match rather than [getSingleOrNull] so a stray
+  /// duplicate row (e.g. from an older bug) doesn't crash the save flow.
+  Future<BudgetLimit?> getBudgetForCategory(
+      int categoryId, int year, int month) async {
+    final rows = await (select(budgetLimits)
+          ..where((b) =>
+              b.categoryId.equals(categoryId) &
+              b.month.equals(month) &
+              b.year.equals(year)))
+        .get();
+    return rows.isEmpty ? null : rows.first;
+  }
 
   Future<Category?> getCategoryById(int id) =>
       (select(categories)..where((c) => c.id.equals(id))).getSingleOrNull();
@@ -1327,6 +1337,11 @@ class AppDatabase extends _$AppDatabase {
       (select(monthlyPlans)
             ..where((p) => p.year.equals(year) & p.month.equals(month)))
           .getSingleOrNull();
+
+  Stream<MonthlyPlan?> watchMonthlyPlan(int year, int month) =>
+      (select(monthlyPlans)
+            ..where((p) => p.year.equals(year) & p.month.equals(month)))
+          .watchSingleOrNull();
 
   Future<int> upsertMonthlyPlan(MonthlyPlansCompanion entry) =>
       into(monthlyPlans).insertOnConflictUpdate(entry);

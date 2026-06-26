@@ -147,11 +147,21 @@ class ReportsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
-                      height: 160,
+                      height: timeframe.type == InsightsTimeframeType.year
+                          ? 220
+                          : 160,
                       child: TrendLineChart(
                         data: daily,
                         color: context.colors.expense,
-                        bottomLabel: (d) => DateFormat('d').format(d),
+                        bottomLabel: (d) => switch (timeframe.type) {
+                          InsightsTimeframeType.week => DateFormat('d').format(d),
+                          InsightsTimeframeType.month =>
+                            DateFormat('d MMM').format(d),
+                          InsightsTimeframeType.year =>
+                            DateFormat('MMM').format(d),
+                          InsightsTimeframeType.custom =>
+                            DateFormat('d MMM').format(d),
+                        },
                       ),
                     ),
                   ],

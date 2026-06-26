@@ -45,8 +45,11 @@ app.*.map.json
 /android/app/release
 .claude/
 
-# Personal data — never commit real database/backup exports
+# Personal data — never commit real database/backup exports.
+# assets/data/ is referenced in pubspec.yaml so the directory must exist on
+# a fresh clone; only its contents are ignored (.gitkeep is force-added).
 *.sqlite
 *.sqlite3
 *.MoneyPlusPack
-assets/data/
+assets/data/*
+!assets/data/.gitkeep

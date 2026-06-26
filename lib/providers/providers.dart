@@ -115,10 +115,10 @@ final activeBillsProvider = StreamProvider<List<Bill>>((ref) {
 
 // ── Budgets ───────────────────────────────────────────────────────────────────
 
-final budgetsProvider = FutureProvider<List<BudgetLimit>>((ref) {
+final budgetsProvider = StreamProvider<List<BudgetLimit>>((ref) {
   final db = ref.watch(databaseProvider);
   final month = ref.watch(selectedMonthProvider);
-  return db.getBudgetsByMonth(month.year, month.month);
+  return db.watchBudgetsByMonth(month.year, month.month);
 });
 
 // ── Goals ─────────────────────────────────────────────────────────────────────
@@ -264,11 +264,48 @@ final insightsCategoryTransactionsProvider =
       .getTransactionsByCategoryAndRange(categoryId, tf.start, tf.end);
 });
 
+/// Spending trend for the chart on the Insights summary view, bucketed at a
+/// granularity matching the current timeframe so a Yearly view shows ~12
+/// monthly points instead of 365 cramped daily ones.
 final insightsDailySpendingProvider =
-    FutureProvider<List<MapEntry<DateTime, double>>>((ref) {
+    FutureProvider<List<MapEntry<DateTime, double>>>((ref) async {
   final tf = ref.watch(insightsTimeframeProvider);
+  final db = ref.watch(databaseProvider);
   ref.watch(allTransactionsProvider);
-  return ref.watch(databaseProvider).getDailySpendingByRange(tf.start, tf.end);
+
+  switch (tf.type) {
+    case InsightsTimeframeType.week:
+      return db.getDailySpendingByRange(tf.start, tf.end);
+    case InsightsTimeframeType.month:
+      final weeks = await db.getIncomeExpenseByWeekRange(tf.start, tf.end);
+      return [
+        for (final w in weeks)
+          MapEntry(w['date'] as DateTime, w['expense'] as double)
+      ];
+    case InsightsTimeframeType.year:
+      final months = await db.getIncomeExpenseByMonthRange(tf.start, tf.end);
+      return [
+        for (final m in months)
+          MapEntry(
+              DateTime(m['year'] as int, m['month'] as int), m['expense'] as double)
+      ];
+    case InsightsTimeframeType.custom:
+      final days = tf.end.difference(tf.start).inDays;
+      if (days <= 31) return db.getDailySpendingByRange(tf.start, tf.end);
+      if (days <= 120) {
+        final weeks = await db.getIncomeExpenseByWeekRange(tf.start, tf.end);
+        return [
+          for (final w in weeks)
+            MapEntry(w['date'] as DateTime, w['expense'] as double)
+        ];
+      }
+      final months = await db.getIncomeExpenseByMonthRange(tf.start, tf.end);
+      return [
+        for (final m in months)
+          MapEntry(
+              DateTime(m['year'] as int, m['month'] as int), m['expense'] as double)
+      ];
+  }
 });
 
 /// Income/expense totals bucketed at a granularity matching the current
@@ -329,10 +366,10 @@ final yearlyNetWorthTrendProvider =
 
 // ── Future Plan & Commitment ─────────────────────────────────────────────────
 
-final monthlyPlanProvider = FutureProvider<MonthlyPlan?>((ref) {
+final monthlyPlanProvider = StreamProvider<MonthlyPlan?>((ref) {
   final db = ref.watch(databaseProvider);
   final month = ref.watch(selectedMonthProvider);
-  return db.getMonthlyPlan(month.year, month.month);
+  return db.watchMonthlyPlan(month.year, month.month);
 });
 
 final commitmentsForMonthProvider = StreamProvider<List<Commitment>>((ref) {
