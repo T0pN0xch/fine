@@ -31,6 +31,13 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // R8 minification was stripping/renaming classes WorkManager's internal
+            // Room database needs at runtime (no proguard-rules.pro keep rules exist
+            // for androidx.work/androidx.room), crashing on app update with
+            // "Failed to create an instance of androidx.work.impl.WorkDatabase".
+            // This is a small personal app — code size isn't worth the risk.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
