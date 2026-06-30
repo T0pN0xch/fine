@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="finance_widget_label">This Week</string>
+    <string name="finance_widget_description">Weekly spending summary</string>
+    <string name="finance_widget_placeholder">Open Fine to load your weekly spending</string>
+</resources>

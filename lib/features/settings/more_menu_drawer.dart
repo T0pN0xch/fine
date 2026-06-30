@@ -17,6 +17,7 @@ class MoreMenuDrawer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final accountsAsync = ref.watch(accountsProvider);
+    final packageInfoAsync = ref.watch(packageInfoProvider);
 
     return Drawer(
       child: SafeArea(
@@ -153,10 +154,14 @@ class MoreMenuDrawer extends ConsumerWidget {
 
             // App info section
             const _SectionLabel('About'),
-            const _SettingsTile(
+            _SettingsTile(
               icon: 'ℹ️',
               title: 'Version',
-              subtitle: '1.0.0',
+              subtitle: packageInfoAsync.when(
+                data: (info) => '${info.version} (build ${info.buildNumber})',
+                loading: () => '…',
+                error: (_, __) => '—',
+              ),
               onTap: null,
             ),
             _SettingsTile(

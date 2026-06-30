@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' show Value;
 import '../../core/theme/app_theme.dart';
+import '../../core/services/home_widget_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/date_formatter.dart';
@@ -192,6 +195,7 @@ class _AddEditTransactionScreenState
         txnId = await db.insertTransactionWithBalanceUpdate(companion);
       }
       await db.setTransactionTags(txnId, _tags);
+      unawaited(HomeWidgetService.refresh(db));
 
       if (_type == 'expense' && categoryId != null) {
         await NotificationService.instance.checkBudgetThreshold(
@@ -232,6 +236,7 @@ class _AddEditTransactionScreenState
     if (confirmed != true) return;
     final db = ref.read(databaseProvider);
     await db.deleteTransactionWithBalanceUpdate(widget.existing!);
+    unawaited(HomeWidgetService.refresh(db));
     if (mounted) Navigator.of(context).pop();
   }
 

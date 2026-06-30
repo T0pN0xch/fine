@@ -1,7 +1,7 @@
 name: budget_app
 description: A personal budgeting app inspired by Money+
 publish_to: "none"
-version: 1.0.1+2
+version: 1.0.2+3
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -45,6 +45,12 @@ dependencies:
   uuid: ^4.4.0
   csv: ^6.0.0
   share_plus: ^10.0.2
+
+  # App metadata
+  package_info_plus: ^8.0.0
+
+  # Home screen widget
+  home_widget: ^0.6.0
 
 dev_dependencies:
   flutter_test:

@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../data/database/app_database.dart';
+
+// ── App metadata ─────────────────────────────────────────────────────────────
+
+/// Real installed app version (versionName+versionCode), read from the
+/// Android package manager — always matches whatever pubspec.yaml version
+/// was baked into the running build, no manual sync needed.
+final packageInfoProvider = FutureProvider<PackageInfo>((ref) {
+  return PackageInfo.fromPlatform();
+});
 
 // ── Database ──────────────────────────────────────────────────────────────────
 

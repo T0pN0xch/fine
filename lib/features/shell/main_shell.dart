@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/services/home_widget_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/bouncy_tap.dart';
+import '../../providers/providers.dart';
 import '../transactions/transactions_screen.dart';
 import '../wallet/wallet_screen.dart';
 import '../reports/reports_screen.dart';
@@ -23,6 +27,12 @@ class _MainShellState extends ConsumerState<MainShell> {
     ReportsScreen(),
     GoalsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(HomeWidgetService.refresh(ref.read(databaseProvider)));
+  }
 
   @override
   Widget build(BuildContext context) {
